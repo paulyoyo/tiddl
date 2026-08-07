@@ -87,11 +87,14 @@ class Config(BaseModel):
     m3u: M3UConfig = M3UConfig()
 
     class TemplatesConfig(BaseModel):
-        default: str = "{album.artist}/{album.title}/{item.title}"
+        # single tracks: no folder, "Artist - Title"
+        default: str = "{item.artist} - {item.title_version}"
         track: str = ""
         video: str = ""
-        album: str = ""
-        playlist: str = ""
+        # whole-album link: one folder named after the album
+        album: str = "{album.title}/{item.artist} - {item.title_version}"
+        # playlist link: one folder named after the playlist, files flat inside
+        playlist: str = "{playlist.title}/{item.artist} - {item.title_version}"
         mix: str = ""
 
         def model_post_init(self, __context):
