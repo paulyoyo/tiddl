@@ -673,7 +673,20 @@ def download_callback(
                                                 playlist_item.item
                                             ),
                                         ),
-                                        track_metadata=Metadata(),
+                                        track_metadata=Metadata(
+                                            # playlist downloads had no date; use
+                                            # album release date, fall back to the
+                                            # track's stream start date.
+                                            date=(
+                                                str(album.releaseDate)
+                                                if album and album.releaseDate
+                                                else (
+                                                    str(playlist_item.item.streamStartDate)
+                                                    if playlist_item.item.streamStartDate
+                                                    else ""
+                                                )
+                                            ),
+                                        ),
                                     )
                                 )
                             except ApiError as e:

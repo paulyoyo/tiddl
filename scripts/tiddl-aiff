@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+# tiddl-aiff — download from TIDAL at max quality, then convert every FLAC to
+# AIFF, downsampling anything above 48 kHz to 48 kHz. Bit depth, cover art and
+# tags are preserved. The FLAC is removed only after the AIFF is written OK.
+#
+# Usage:   tiddl-aiff <tidal-url> [more urls...]
+#          TIDDL_DIR=/other/path tiddl-aiff <url>   # override download folder
+#
+# Verified: 44.1k stays 44.1k; 96k/24-bit -> 48k/24-bit; cover+tags kept.
+set -euo pipefail
+
+DIR="${TIDDL_DIR:-$HOME/Downloads/tidal-download}"
+
+# 1. download (config already set to track_quality=max)
+tiddl download url "$@"
+
+# 2. convert results to AIFF, capping sample rate at 48 kHz
+echo "converting FLAC -> AIFF (<=48kHz) in $DIR ..."
+n=0
+while IFS= read -r -d '' f; do
+  sr=$(ffprobe -v error -select_streams a -show_entries stream=sample_rate -of csv=p=0 "$f")
+  bits=$(ffprobe -v error -select_streams a -show_entries stream=bits_per_raw_sample -of csv=p=0 "$f")
+  case "$bits" in ''|N/A) bits=16 ;; esac
+  if [ "$bits" -ge 24 ]; then codec=pcm_s24be; else codec=pcm_s16be; fi
+
+  args=(-map 0 -c:v copy -c:a "$codec" -map_metadata 0 -write_id3v2 1)
+  if [ "$sr" -gt 48000 ]; then args+=(-ar 48000); fi
+
+  out="${f%.flac}.aiff"
+  if ffmpeg -v error -y -i "$f" "${args[@]}" "$out"; then
+    rm -f "$f"
+    n=$((n + 1))
+  else
+    echo "  FAILED, kept FLAC: $f" >&2
+  fi
+done < <(find "$DIR" -name '*.flac' -print0)
+echo "done: $n file(s) -> AIFF"
